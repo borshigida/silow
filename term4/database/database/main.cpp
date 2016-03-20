@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
     getline(cin, line);
     strcpy(command, line.c_str());
     
-    work(database, command);
+    work(database, command); // some changes here 
     
     close(fd);
 }
