@@ -27,7 +27,16 @@ struct entry {
     
 public:
     
-    entry() : user_id{0}, item{new char[20]}, price(0.0), date(new char[MAXDATESIZE]) {}
+    entry() {
+        user_id= 0;
+        item = new char[20];
+        price = 0.0;
+        date = new char[MAXDATESIZE];
+    }
+};
+
+struct compare_dates {
+    bool operator()(const char* date1, const char* date2)
 };
 
 int readf(int fd, char* buf) {
