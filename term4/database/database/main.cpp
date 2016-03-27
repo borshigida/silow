@@ -20,6 +20,10 @@ const char* field_names[number_of_fields] = {"USER ID", "ITEM", "PRICE", "DATE"}
 const int MAXDATESIZE = 10;
 const int MAXCOMMANDSIZE = 100;
 
+const char* FARPAST = "0.0.0";
+const char* FARFUTURE = "30.12.3000";
+
+
 struct entry {
     int user_id;
     char *item;
@@ -72,39 +76,17 @@ int readf(int fd, char* buf) {
     return 0;
 }
 
-void empty_string(char* res_string) {
-    strcat(res_string, "   ");
-    for (int i = 0; i < number_of_fields; i++) {
-        for (int k = 0; k < field_lens[i] - 3; k++) {
-            strcat(res_string, " ");
-        }
-        strcat(res_string, "   ");
+int writef(int fd, char* string) {
+    size_t len = strlen(string);
+    if (write(fd, &len, sizeof len) != sizeof len) {
+        printf("Error writing\n");
+        return -1;
     }
-}
-
-void title_string(char* res_string) {
-    strcat(res_string, "   ");
-    for (int i = 0; i < number_of_fields; i++) {
-        strcat(res_string, field_names[i]);
-        for (int k = 0; k < field_lens[i] - 3 - (int) strlen(field_names[i]); k++) {
-            strcat(res_string, " ");
-        }
-        strcat(res_string, "   ");
+    if ((int) write(fd, string, len + 1) != (int) len + 1) {
+        printf("Error writing\n");
+        return -1;
     }
-}
-
-void print_title(char* entry_string) {
-    memset(entry_string, '\0', strlen(entry_string));
-    empty_string(entry_string);
-    printf("%s\n", entry_string);
-    
-    memset(entry_string, '\0', strlen(entry_string));
-    title_string(entry_string);
-    printf("%s\n", entry_string);
-    
-    memset(entry_string, '\0', strlen(entry_string));
-    empty_string(entry_string);
-    printf("%s\n", entry_string);
+    return 0;
 }
 
 int read_entry(int fd, char* buf, entry& res) {
@@ -134,7 +116,39 @@ int read_entry(int fd, char* buf, entry& res) {
     return 0;
 }
 
-int print_entry(entry the_entry) {
+int write_entry(int fd, entry& theentry) {
+    char* c_user_id = new char[20];
+    char* c_price = new char[100];
+    sprintf(c_user_id, "%d", theentry.user_id);
+    sprintf(c_price, "%f", theentry.price);
+    if (writef(fd, c_user_id) == -1) {
+        return -1;
+    }
+    if (writef(fd, theentry.item) == -1) {
+        return -1;
+    }
+    if (writef(fd, c_price) == -1) {
+        return -1;
+    }
+    if (writef(fd, theentry.date) == -1) {
+        return -1;
+    }
+    return 0;
+}
+
+int write_all_entries(int fd, data_structure& database) {
+    for(data_structure::iterator it = database.begin(); it != database.end(); it++) {
+        for(user_structure::iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+            if (write_entry(fd, it2->second) != 0) {
+                cerr << "Couldn't write all entries\n";
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int print_entry(entry& the_entry) {
     printf("   ");
     
     int num_characters;
@@ -171,17 +185,96 @@ int print_entry(entry the_entry) {
     return 0;
 }
 
+int print_all_entries(data_structure& database) {
+    for(data_structure::iterator it = database.begin(); it != database.end(); it++) {
+        for(user_structure::iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+            if (print_entry(it2->second) != 0) {
+                cerr << "Couldn't print all entries\n";
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+
+void empty_string(char* res_string) {
+    strcat(res_string, "   ");
+    for (int i = 0; i < number_of_fields; i++) {
+        for (int k = 0; k < field_lens[i] - 3; k++) {
+            strcat(res_string, " ");
+        }
+        strcat(res_string, "   ");
+    }
+}
+
+void title_string(char* res_string) {
+    strcat(res_string, "   ");
+    for (int i = 0; i < number_of_fields; i++) {
+        strcat(res_string, field_names[i]);
+        for (int k = 0; k < field_lens[i] - 3 - (int) strlen(field_names[i]); k++) {
+            strcat(res_string, " ");
+        }
+        strcat(res_string, "   ");
+    }
+}
+
+void print_title(char* entry_string) {
+    memset(entry_string, '\0', strlen(entry_string));
+    empty_string(entry_string);
+    printf("%s\n", entry_string);
+    
+    memset(entry_string, '\0', strlen(entry_string));
+    title_string(entry_string);
+    printf("%s\n", entry_string);
+    
+    memset(entry_string, '\0', strlen(entry_string));
+    empty_string(entry_string);
+    printf("%s\n", entry_string);
+}
+
+void work_select(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
+    if (user == -1) {
+        for (data_structure::iterator it = database.begin(); it != database.end(); it++) {
+            user_structure& usermap = it->second;
+            user_structure::iterator itlow, itup;
+            itlow = usermap.lower_bound(date1);
+            itup = usermap.upper_bound(date2);
+            for (user_structure::iterator it = itlow; it != itup; it++) {
+                print_entry(it->second);
+            }
+        }
+        return;
+    }
+    user_structure& usermap = database[user];
+    user_structure::iterator itlow, itup;
+    itlow = usermap.lower_bound(date1);
+    itup = usermap.upper_bound(date2);
+    for (user_structure::iterator it = itlow; it != itup; it++) {
+        print_entry(it->second);
+    }
+}
+
 int work(data_structure& database, char* command) {
+    // execute a command
     int user;
     char* date1 = new char[MAXDATESIZE]; char* date2 = new char[MAXDATESIZE];
-    if (sscanf(command, "select user = %d period = [%[^,], %[^,]]", &user, date1, date2) == 3) {
-        user_structure& usermap = database[user];
-        user_structure::iterator itlow, itup;
-        itlow = usermap.lower_bound(date1);
-        itup = usermap.upper_bound(date2);
-        for (user_structure::iterator it = itlow; it != itup; it++) {
-            print_entry(it->second);
-        }
+    
+    int n;
+    if (sscanf(command, "select %n", &n) == 0 && n == strlen(command)) {
+        work_select(database);
+    }
+    else if (sscanf(command, "select%*[ ]user = %d %n", &user, &n) == 1 && n  == strlen(command)) {
+        work_select(database, user);
+    }
+    else if (sscanf(command, "select%*[ ]user = %d%*[ ]period = [ %[.0-9], %[.0-9] ] %n", &user, date1, date2, &n) == 3 && n  == strlen(command)) {
+        work_select(database, user, date1, date2);
+    }
+    else if (sscanf(command, "select%*[ ]period = [ %[.0-9], %[.0-9] ] %n", date1, date2, &n) == 2 && n  == strlen(command)) {
+        work_select(database, -1, date1, date2);
+    }
+    else if (sscanf(command, "select%*[ ]period = [ %[.0-9], %[.0-9] ]%*[ ]user = %d %n", date1, date2, &user, &n) == 3 && n  == strlen(command)) {
+        work_select(database, user, date1, date2);
     }
     return 0;
 }
@@ -228,7 +321,9 @@ int main(int argc, char* argv[]) { // One argument: the name of the file from wh
     }
     // ==== ===
     
+    close(fd);
     
+    fd = open(argv[1], O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
     // === Asking for the command ===
     string line;
     char* command = new char[MAXCOMMANDSIZE];
@@ -239,6 +334,8 @@ int main(int argc, char* argv[]) { // One argument: the name of the file from wh
     strcpy(command, line.c_str());
     
     work(database, command);
+    
+    write_all_entries(fd, database);
     // === ===
     
     close(fd);
