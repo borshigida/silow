@@ -255,26 +255,67 @@ void work_select(data_structure& database, const int user = -1, const char* date
     }
 }
 
+void work_delete(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
+    if (user == -1) {
+        for (data_structure::iterator it = database.begin(); it != database.end(); it++) {
+            user_structure& usermap = it->second;
+            user_structure::iterator itlow, itup;
+            itlow = usermap.lower_bound(date1);
+            itup = usermap.upper_bound(date2);
+            for (user_structure::iterator it = itlow; it != itup;) {
+                it = usermap.erase(it);
+            }
+        }
+        return;
+    }
+    user_structure& usermap = database[user];
+    user_structure::iterator itlow, itup;
+    itlow = usermap.lower_bound(date1);
+    itup = usermap.upper_bound(date2);
+    for (user_structure::iterator it = itlow; it != itup;) {
+        it = usermap.erase(it);
+    }
+}
+
 int work(data_structure& database, char* command) {
     // execute a command
     int user;
     char* date1 = new char[MAXDATESIZE]; char* date2 = new char[MAXDATESIZE];
     
     int n;
-    if (sscanf(command, "select %n", &n) == 0 && n == strlen(command)) {
-        work_select(database);
+    if (sscanf(command, "select%n", &n) == 0 && n == strlen("select")) {
+        if (sscanf(command, "select %n", &n) == 0 && n == strlen(command)) {
+            work_select(database);
+        }
+        else if (sscanf(command, "select%*[ ]user = %d %n", &user, &n) == 1 && n  == strlen(command)) {
+            work_select(database, user);
+        }
+        else if (sscanf(command, "select%*[ ]user = %d%*[ ]period = [ %[.0-9], %[.0-9] ] %n", &user, date1, date2, &n) == 3 && n  == strlen(command)) {
+            work_select(database, user, date1, date2);
+        }
+        else if (sscanf(command, "select%*[ ]period = [ %[.0-9], %[.0-9] ] %n", date1, date2, &n) == 2 && n  == strlen(command)) {
+            work_select(database, -1, date1, date2);
+        }
+        else if (sscanf(command, "select%*[ ]period = [ %[.0-9], %[.0-9] ]%*[ ]user = %d %n", date1, date2, &user, &n) == 3 && n  == strlen(command)) {
+            work_select(database, user, date1, date2);
+        }
     }
-    else if (sscanf(command, "select%*[ ]user = %d %n", &user, &n) == 1 && n  == strlen(command)) {
-        work_select(database, user);
-    }
-    else if (sscanf(command, "select%*[ ]user = %d%*[ ]period = [ %[.0-9], %[.0-9] ] %n", &user, date1, date2, &n) == 3 && n  == strlen(command)) {
-        work_select(database, user, date1, date2);
-    }
-    else if (sscanf(command, "select%*[ ]period = [ %[.0-9], %[.0-9] ] %n", date1, date2, &n) == 2 && n  == strlen(command)) {
-        work_select(database, -1, date1, date2);
-    }
-    else if (sscanf(command, "select%*[ ]period = [ %[.0-9], %[.0-9] ]%*[ ]user = %d %n", date1, date2, &user, &n) == 3 && n  == strlen(command)) {
-        work_select(database, user, date1, date2);
+    else if (sscanf(command, "delete%n", &n) == 0 && n == strlen("delete")) {
+        if (sscanf(command, "delete %n", &n) == 0 && n == strlen(command)) {
+            work_delete(database);
+        }
+        else if (sscanf(command, "delete%*[ ]user = %d %n", &user, &n) == 1 && n  == strlen(command)) {
+            work_delete(database, user);
+        }
+        else if (sscanf(command, "delete%*[ ]user = %d%*[ ]period = [ %[.0-9], %[.0-9] ] %n", &user, date1, date2, &n) == 3 && n  == strlen(command)) {
+            work_delete(database, user, date1, date2);
+        }
+        else if (sscanf(command, "delete%*[ ]period = [ %[.0-9], %[.0-9] ] %n", date1, date2, &n) == 2 && n  == strlen(command)) {
+            work_delete(database, -1, date1, date2);
+        }
+        else if (sscanf(command, "delete%*[ ]period = [ %[.0-9], %[.0-9] ]%*[ ]user = %d %n", date1, date2, &user, &n) == 3 && n  == strlen(command)) {
+            work_delete(database, user, date1, date2);
+        }
     }
     return 0;
 }
