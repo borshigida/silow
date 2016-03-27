@@ -22,7 +22,8 @@ struct entry {
 
 entry& generate_random_entry() {
     entry& res = *(new entry);
-    res.user_id = rand() % USER_MAX + 1;
+    //res.user_id = rand() % USER_MAX + 1;
+    res.user_id = 2; // CAREFUL IT IS DEBUGGING
     
     /*
      const size_t itemlen = rand() % ITEM_MAX + 1;

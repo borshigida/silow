@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include <vector>
+#include <map>
 
 using namespace std;
 
@@ -15,7 +16,7 @@ const int number_of_fields = 4;
 const int field_lens[number_of_fields] = {20, 35, 20, 20};
 const char* field_names[number_of_fields] = {"USER ID", "ITEM", "PRICE", "DATE"};
 
-const int MAXN = 100000; // the maximum number of entries in a database
+//const int MAXN = 100000; // the maximum number of entries in a database
 const int MAXDATESIZE = 10;
 const int MAXCOMMANDSIZE = 100;
 
@@ -34,6 +35,21 @@ public:
         date = new char[MAXDATESIZE];
     }
 };
+
+struct compare_dates {
+    bool operator()(const char* date1, const char* date2) const {
+        int day1, month1, year1, day2, month2, year2;
+        sscanf(date1, "%d.%d.%d", &day1, &month1, &year1);
+        sscanf(date2, "%d.%d.%d", &day2, &month2, &year2);
+        if (year1 != year2) return (year1 < year2);
+        if (month1 != month2) return (month1 < month2);
+        if (day1 != day2) return (day1 < day2);
+        return false;
+    }
+};
+
+typedef multimap<const char*, entry, compare_dates> user_structure;
+typedef map<int, user_structure> data_structure;
 
 int readf(int fd, char* buf) {
     size_t len;
@@ -155,34 +171,24 @@ int print_entry(entry the_entry) {
     return 0;
 }
 
-struct compare_dates {
-    bool operator()(const char* date1, const char* date2) const {
-        int day1, month1, year1, day2, month2, year2;
-        sscanf(date1, "%d.%d.%d", &day1, &month1, &year1);
-        sscanf(date2, "%d.%d.%d", &day2, &month2, &year2);
-        if (year1 != year2) return (year1 < year2);
-        if (month1 != month2) return (month1 < month2);
-        if (day1 != day2) return (day1 < day2);
-        return false;
-    }
-};
-
-int work_stupid(vector<entry>& database, char* command) {
+int work(data_structure& database, char* command) {
     int user;
     char* date1 = new char[MAXDATESIZE]; char* date2 = new char[MAXDATESIZE];
     if (sscanf(command, "select user = %d period = [%[^,], %[^,]]", &user, date1, date2) == 3) {
-        for(vector<entry>::iterator it = database.begin(); it != database.end(); it++) {
-            if ((*it).user_id == user && !compare_dates().operator()(date2, (*it).date) && !compare_dates().operator()((*it).date, date1)) {
-                print_entry(*it);
-            }
+        user_structure& usermap = database[user];
+        user_structure::iterator itlow, itup;
+        itlow = usermap.lower_bound(date1);
+        itup = usermap.upper_bound(date2);
+        for (user_structure::iterator it = itlow; it != itup; it++) {
+            print_entry(it->second);
         }
     }
     return 0;
 }
 
-int main(int argc, char* argv[]) {
-    // One argument: the name of the file from which we read random entries
+int main(int argc, char* argv[]) { // One argument: the name of the file from which we read random entries
     
+    // === Opening files, checking the number of arguments ===
     if (argc != 2) {
         cerr << "The number of arguments is wrong\n";
         exit(-1);
@@ -191,19 +197,15 @@ int main(int argc, char* argv[]) {
     int fd = open(argv[1], O_RDONLY);
     
     if (fd == -1) {
-        printf("Error opening file\n");
-        return -1;
+        cerr << "Error opening file\n";
+        exit(-1);
     }
+    // === ===
     
-    if (argc > 2) {
-        printf("Too many arguments\n");
-        return -1;
-    }
     
+    // === Creating the map ===
     char* buf = new char[1024];
-    char* entry_string = new char[1024];
-    vector<entry> database;
-    database.reserve(MAXN); // vector of all entries
+    data_structure database; // main database map
     
     while(true) {
         entry res_entry;
@@ -216,18 +218,18 @@ int main(int argc, char* argv[]) {
             break;
         }
         
-        database.push_back(res_entry);
+        database[res_entry.user_id].insert(pair<const char*, entry>(res_entry.date, res_entry));
     }
     
-    /*
-     By now we've created a vector of all entries in the database, named database.
-    */
-    
-    print_title(entry_string);
-    for(vector<entry>::iterator it = database.begin(); it != database.end(); it++) {
-        print_entry(*it);
+    for(data_structure::iterator it = database.begin(); it != database.end(); it++) {
+        for(user_structure::iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+            print_entry(it2->second);
+        }
     }
+    // ==== ===
     
+    
+    // === Asking for the command ===
     string line;
     char* command = new char[MAXCOMMANDSIZE];
     
@@ -236,7 +238,8 @@ int main(int argc, char* argv[]) {
     getline(cin, line);
     strcpy(command, line.c_str());
     
-    //work(database, command);
+    work(database, command);
+    // === ===
     
     close(fd);
 }
