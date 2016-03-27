@@ -35,10 +35,6 @@ public:
     }
 };
 
-struct compare_dates {
-    bool operator()(const char* date1, const char* date2)
-};
-
 int readf(int fd, char* buf) {
     size_t len;
     ssize_t s;
@@ -159,12 +155,24 @@ int print_entry(entry the_entry) {
     return 0;
 }
 
-int work(vector<entry>& database, char* command) {
+struct compare_dates {
+    bool operator()(const char* date1, const char* date2) const {
+        int day1, month1, year1, day2, month2, year2;
+        sscanf(date1, "%d.%d.%d", &day1, &month1, &year1);
+        sscanf(date2, "%d.%d.%d", &day2, &month2, &year2);
+        if (year1 != year2) return (year1 < year2);
+        if (month1 != month2) return (month1 < month2);
+        if (day1 != day2) return (day1 < day2);
+        return false;
+    }
+};
+
+int work_stupid(vector<entry>& database, char* command) {
     int user;
-    char* date = new char[MAXDATESIZE];
-    if (sscanf(command, "select user = %d date = %s", &user, date) == 2) {
+    char* date1 = new char[MAXDATESIZE]; char* date2 = new char[MAXDATESIZE];
+    if (sscanf(command, "select user = %d period = [%[^,], %[^,]]", &user, date1, date2) == 3) {
         for(vector<entry>::iterator it = database.begin(); it != database.end(); it++) {
-            if ((*it).user_id == user && strcmp((*it).date, date) == 0) {
+            if ((*it).user_id == user && !compare_dates().operator()(date2, (*it).date) && !compare_dates().operator()((*it).date, date1)) {
                 print_entry(*it);
             }
         }
@@ -211,6 +219,10 @@ int main(int argc, char* argv[]) {
         database.push_back(res_entry);
     }
     
+    /*
+     By now we've created a vector of all entries in the database, named database.
+    */
+    
     print_title(entry_string);
     for(vector<entry>::iterator it = database.begin(); it != database.end(); it++) {
         print_entry(*it);
@@ -224,7 +236,7 @@ int main(int argc, char* argv[]) {
     getline(cin, line);
     strcpy(command, line.c_str());
     
-    work(database, command); // some changes here 
+    //work(database, command);
     
     close(fd);
 }
