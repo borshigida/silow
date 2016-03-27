@@ -233,7 +233,7 @@ void print_title(char* entry_string) {
     printf("%s\n", entry_string);
 }
 
-void work_select(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
+int work_select(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
     if (user == -1) {
         for (data_structure::iterator it = database.begin(); it != database.end(); it++) {
             user_structure& usermap = it->second;
@@ -244,7 +244,7 @@ void work_select(data_structure& database, const int user = -1, const char* date
                 print_entry(it->second);
             }
         }
-        return;
+        return 0;
     }
     user_structure& usermap = database[user];
     user_structure::iterator itlow, itup;
@@ -253,9 +253,10 @@ void work_select(data_structure& database, const int user = -1, const char* date
     for (user_structure::iterator it = itlow; it != itup; it++) {
         print_entry(it->second);
     }
+    return 0;
 }
 
-void work_delete(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
+int work_delete(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
     if (user == -1) {
         for (data_structure::iterator it = database.begin(); it != database.end(); it++) {
             user_structure& usermap = it->second;
@@ -263,21 +264,82 @@ void work_delete(data_structure& database, const int user = -1, const char* date
             itlow = usermap.lower_bound(date1);
             itup = usermap.upper_bound(date2);
             for (user_structure::iterator it = itlow; it != itup;) {
-                it = usermap.erase(it);
+                try {
+                    it = usermap.erase(it);
+                } catch (...) {
+                    return -1;
+                }
             }
         }
-        return;
+        return 0;
     }
     user_structure& usermap = database[user];
     user_structure::iterator itlow, itup;
     itlow = usermap.lower_bound(date1);
     itup = usermap.upper_bound(date2);
     for (user_structure::iterator it = itlow; it != itup;) {
-        it = usermap.erase(it);
+        try {
+            it = usermap.erase(it);
+        } catch (...) {
+            return -1;
+        }
     }
+    return 0;
 }
 
-int work(data_structure& database, char* command) {
+int load(const char* filename, data_structure& database) {
+    database.clear();
+    
+    int fd = open(filename, O_RDONLY);
+    
+    if (fd == -1) {
+        cerr << "Error opening file\n";
+        return -1;
+    }
+    // === ===
+    
+    
+    // === Creating the map ===
+    char* buf = new char[1024];
+    
+    while(true) {
+        entry res_entry;
+        int read_res = read_entry(fd, buf, res_entry);
+        if (read_res == -1) {
+            cerr << "Error reading\n";
+            close(fd);
+            return -1;
+        }
+        else if (read_res == 1) {
+            break;
+        }
+        
+        database[res_entry.user_id].insert(pair<const char*, entry>(res_entry.date, res_entry));
+    }
+    // ==== ===
+    
+    close(fd);
+    return 0;
+}
+
+int save(const char* filename, data_structure& database) {
+    int fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+    
+    if (fd == -1) {
+        cerr << "Error opening file\n";
+        return -1;
+    }
+    
+    if (write_all_entries(fd, database) == -1) {
+        close(fd);
+        return -1;
+    }
+    
+    close(fd);
+    return 0;
+}
+
+int work(const char* filename, data_structure& database, char* command) {
     // execute a command
     int user;
     char* date1 = new char[MAXDATESIZE]; char* date2 = new char[MAXDATESIZE];
@@ -302,20 +364,32 @@ int work(data_structure& database, char* command) {
     }
     else if (sscanf(command, "delete%n", &n) == 0 && n == strlen("delete")) {
         if (sscanf(command, "delete %n", &n) == 0 && n == strlen(command)) {
-            work_delete(database);
+            if (work_delete(database) == -1) return -1;
         }
         else if (sscanf(command, "delete%*[ ]user = %d %n", &user, &n) == 1 && n  == strlen(command)) {
-            work_delete(database, user);
+            if (work_delete(database, user) == -1) return -1;
         }
         else if (sscanf(command, "delete%*[ ]user = %d%*[ ]period = [ %[.0-9], %[.0-9] ] %n", &user, date1, date2, &n) == 3 && n  == strlen(command)) {
-            work_delete(database, user, date1, date2);
+            if (work_delete(database, user, date1, date2) == -1) return -1;
         }
         else if (sscanf(command, "delete%*[ ]period = [ %[.0-9], %[.0-9] ] %n", date1, date2, &n) == 2 && n  == strlen(command)) {
-            work_delete(database, -1, date1, date2);
+            if (work_delete(database, -1, date1, date2) == -1) return -1;
         }
         else if (sscanf(command, "delete%*[ ]period = [ %[.0-9], %[.0-9] ]%*[ ]user = %d %n", date1, date2, &user, &n) == 3 && n  == strlen(command)) {
-            work_delete(database, user, date1, date2);
+            if (work_delete(database, user, date1, date2) == -1) return -1;
         }
+    }
+    else if (sscanf(command, "save %n", &n) == 0 && n == strlen(command)) {
+        if (save(filename, database) == -1) return -1;
+    }
+    else if (sscanf(command, "load %n", &n) == 0 && n == strlen(command)) {
+        if (load(filename, database) == -1) return -1;
+    }
+    else if (sscanf(command, "exit %n", &n) == 0 && n == strlen(command)) {
+        return 2;
+    }
+    else {
+        printf("Sorry, didn't understand\n");
     }
     return 0;
 }
@@ -325,59 +399,25 @@ int main(int argc, char* argv[]) { // One argument: the name of the file from wh
     // === Opening files, checking the number of arguments ===
     if (argc != 2) {
         cerr << "The number of arguments is wrong\n";
-        exit(-1);
+        return -1;
     }
     
-    int fd = open(argv[1], O_RDONLY);
+    data_structure database;
+    load(argv[1], database);
     
-    if (fd == -1) {
-        cerr << "Error opening file\n";
-        exit(-1);
-    }
-    // === ===
-    
-    
-    // === Creating the map ===
-    char* buf = new char[1024];
-    data_structure database; // main database map
-    
-    while(true) {
-        entry res_entry;
-        int read_res = read_entry(fd, buf, res_entry);
-        if (read_res == -1) {
-            cerr << "Error reading\n";
-            exit(-1);
-        }
-        else if (read_res == 1) {
-            break;
-        }
-        
-        database[res_entry.user_id].insert(pair<const char*, entry>(res_entry.date, res_entry));
-    }
-    
-    for(data_structure::iterator it = database.begin(); it != database.end(); it++) {
-        for(user_structure::iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
-            print_entry(it2->second);
-        }
-    }
-    // ==== ===
-    
-    close(fd);
-    
-    fd = open(argv[1], O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
-    // === Asking for the command ===
+    // === Executing commands ===
     string line;
     char* command = new char[MAXCOMMANDSIZE];
     
-    printf("> ");
-    
-    getline(cin, line);
-    strcpy(command, line.c_str());
-    
-    work(database, command);
-    
-    write_all_entries(fd, database);
+    while(true) {
+        printf("> ");
+        
+        getline(cin, line);
+        strcpy(command, line.c_str());
+        
+        int ans = work(argv[1], database, command);
+        if (ans == -1) return -1;
+        if (ans == 2) return 0;
+    }
     // === ===
-    
-    close(fd);
 }
