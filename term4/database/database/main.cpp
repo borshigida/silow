@@ -266,6 +266,7 @@ int work_delete(data_structure& database, const int user = -1, const char* date1
             for (user_structure::iterator it = itlow; it != itup;) {
                 try {
                     it = usermap.erase(it);
+                    it++;
                 } catch (...) {
                     return -1;
                 }
@@ -279,7 +280,8 @@ int work_delete(data_structure& database, const int user = -1, const char* date1
     itup = usermap.upper_bound(date2);
     for (user_structure::iterator it = itlow; it != itup;) {
         try {
-            it = usermap.erase(it);
+            usermap.erase(it);
+            it++;
         } catch (...) {
             return -1;
         }
