@@ -234,6 +234,9 @@ void print_title(char* entry_string) {
 }
 
 int work_select(data_structure& database, const int user = -1, const char* date1 = FARPAST, const char* date2 = FARFUTURE) {
+    char* entry_string = new char[1024];
+    print_title(entry_string);
+
     if (user == -1) {
         for (data_structure::iterator it = database.begin(); it != database.end(); it++) {
             user_structure& usermap = it->second;
@@ -415,11 +418,16 @@ int main(int argc, char* argv[]) { // One argument: the name of the file from wh
         getline(cin, line);
         strcpy(command, line.c_str());
 
-        cout << "your command" << command << "\n";
+        //cout << "your command" << command << "\n";
         
         int ans = work(argv[1], database, command);
+        //printf("interesting string\n");
+        cout << endl;
+        //cerr << ans << endl;
         if (ans == -1) return -1;
-        if (ans == 2) return 0;
+        if (ans == 2) {
+            return 0;
+        }
     }
     // === ===
 }
