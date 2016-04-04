@@ -346,6 +346,7 @@ int work(const char* filename, data_structure& database, char* command) {
     // execute a command
     int user;
     char* date1 = new char[MAXDATESIZE]; char* date2 = new char[MAXDATESIZE];
+    int newuser; char* newitem = new char[1024]; char* newdate = new char[1024]; double newprice;
     
     int n;
     if (sscanf(command, "select%n", &n) == 0 && n == strlen("select")) {
@@ -382,6 +383,16 @@ int work(const char* filename, data_structure& database, char* command) {
             if (work_delete(database, user, date1, date2) == -1) return -1;
         }
     }
+
+    else if (sscanf(command, "insert %d [%[a-zA-Z ]] %lf %s %n", &newuser, newitem, &newprice, newdate, &n) == 4 && n == (int) strlen(command)) {
+        entry newentry = entry();
+        newentry.user_id = newuser;
+        strcpy(newentry.item, newitem);
+        newentry.price = newprice;
+        strcpy(newentry.date, newdate);
+        database[newuser].insert(pair<const char*, entry>(newdate, newentry));
+    }
+
     else if (sscanf(command, "save %n", &n) == 0 && n == (int) strlen(command)) {
         if (save(filename, database) == -1) return -1;
     }
